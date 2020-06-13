@@ -41,9 +41,10 @@ class TAG(object):
     """TAG, a variable with an intrinsic name."""
     id = None
 
-    def __init__(self, value=None, name=None):
+    def __init__(self, value=None, name=None, little_endian=False):
         self.name = name
         self.value = value
+        self.little_endian = little_endian
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
@@ -96,8 +97,8 @@ class TAG(object):
 class _TAG_Numeric(TAG):
     """_TAG_Numeric, comparable to int with an intrinsic name"""
 
-    def __init__(self, value=None, name=None, buffer=None):
-        super(_TAG_Numeric, self).__init__(value, name)
+    def __init__(self, value=None, name=None, buffer=None, little_endian=False):
+        super(_TAG_Numeric, self).__init__(value, name, little_endian)
         if buffer:
             self._parse_buffer(buffer)
 
@@ -113,7 +114,7 @@ class _TAG_Numeric(TAG):
 
 class _TAG_End(TAG):
     id = TAG_END
-    fmt = Struct(">b")
+    fmt = Struct(">b" if not self.little_endian else "<b")
 
     def _parse_buffer(self, buffer):
         # Note: buffer.read() may raise an IOError, for example if buffer is a
@@ -131,39 +132,39 @@ class _TAG_End(TAG):
 class TAG_Byte(_TAG_Numeric):
     """Represent a single tag storing 1 byte."""
     id = TAG_BYTE
-    fmt = Struct(">b")
+    fmt = Struct(">b" if not self.little_endian else "<b" )
 
 
 class TAG_Short(_TAG_Numeric):
     """Represent a single tag storing 1 short."""
     id = TAG_SHORT
-    fmt = Struct(">h")
+    fmt = Struct(">h" if not self.little_endian else "<h" )
 
 
 class TAG_Int(_TAG_Numeric):
     """Represent a single tag storing 1 int."""
     id = TAG_INT
-    fmt = Struct(">i")
+    fmt = Struct(">i" if not self.little_endian else "<i")
     """Struct(">i"), 32-bits integer, big-endian"""
 
 
 class TAG_Long(_TAG_Numeric):
     """Represent a single tag storing 1 long."""
     id = TAG_LONG
-    fmt = Struct(">q")
+    fmt = Struct(">q" if not self.little_endian else "<q")
 
 
 class TAG_Float(_TAG_Numeric):
     """Represent a single tag storing 1 IEEE-754 floating point number."""
     id = TAG_FLOAT
-    fmt = Struct(">f")
+    fmt = Struct(">f" if not self.little_endian else "<f")
 
 
 class TAG_Double(_TAG_Numeric):
     """Represent a single tag storing 1 IEEE-754 double precision floating
     point number."""
     id = TAG_DOUBLE
-    fmt = Struct(">d")
+    fmt = Struct(">d" if not self.little_endian else "<d" )
 
 
 class TAG_Byte_Array(TAG, MutableSequence):
@@ -173,19 +174,19 @@ class TAG_Byte_Array(TAG, MutableSequence):
     """
     id = TAG_BYTE_ARRAY
 
-    def __init__(self, name=None, buffer=None):
+    def __init__(self, name=None, buffer=None, little_endian=False):
         # TODO: add a value parameter as well
-        super(TAG_Byte_Array, self).__init__(name=name)
+        super(TAG_Byte_Array, self).__init__(name=name, little_endian=little_endian)
         if buffer:
             self._parse_buffer(buffer)
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
-        length = TAG_Int(buffer=buffer)
+        length = TAG_Int(buffer=buffer, little_endian=self.little_endian)
         self.value = bytearray(buffer.read(length.value))
 
     def _render_buffer(self, buffer):
-        length = TAG_Int(len(self.value))
+        length = TAG_Int(len(self.value), little_endian=self.little_endian)
         length._render_buffer(buffer)
         buffer.write(bytes(self.value))
 
@@ -231,9 +232,9 @@ class TAG_Int_Array(TAG, MutableSequence):
     """
     id = TAG_INT_ARRAY
 
-    def __init__(self, name=None, buffer=None):
+    def __init__(self, name=None, buffer=None, little_endian=False):
         # TODO: add a value parameter as well
-        super(TAG_Int_Array, self).__init__(name=name)
+        super(TAG_Int_Array, self).__init__(name=name, little_endian=little_endian)
         if buffer:
             self._parse_buffer(buffer)
 
@@ -243,14 +244,14 @@ class TAG_Int_Array(TAG, MutableSequence):
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
-        length = TAG_Int(buffer=buffer).value
+        length = TAG_Int(buffer=buffer, little_endian=self.little_endian).value
         self.update_fmt(length)
         self.value = list(self.fmt.unpack(buffer.read(self.fmt.size)))
 
     def _render_buffer(self, buffer):
         length = len(self.value)
         self.update_fmt(length)
-        TAG_Int(length)._render_buffer(buffer)
+        TAG_Int(length, little_endian=self.little_endian)._render_buffer(buffer)
         buffer.write(self.fmt.pack(*self.value))
 
     # Mixin methods
@@ -287,8 +288,8 @@ class TAG_Long_Array(TAG, MutableSequence):
     """
     id = TAG_LONG_ARRAY
 
-    def __init__(self, name=None, buffer=None):
-        super(TAG_Long_Array, self).__init__(name=name)
+    def __init__(self, name=None, buffer=None, little_endian=False):
+        super(TAG_Long_Array, self).__init__(name=name, little_endian=little_endian)
         if buffer:
             self._parse_buffer(buffer)
 
@@ -298,14 +299,14 @@ class TAG_Long_Array(TAG, MutableSequence):
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
-        length = TAG_Int(buffer=buffer).value
+        length = TAG_Int(buffer=buffer, little_endian=self.little_endian).value
         self.update_fmt(length)
         self.value = list(self.fmt.unpack(buffer.read(self.fmt.size)))
 
     def _render_buffer(self, buffer):
         length = len(self.value)
         self.update_fmt(length)
-        TAG_Int(length)._render_buffer(buffer)
+        TAG_Int(length, little_endian=self.little_endian)._render_buffer(buffer)
         buffer.write(self.fmt.pack(*self.value))
 
     # Mixin methods
@@ -342,14 +343,14 @@ class TAG_String(TAG, Sequence):
     """
     id = TAG_STRING
 
-    def __init__(self, value=None, name=None, buffer=None):
-        super(TAG_String, self).__init__(value, name)
+    def __init__(self, value=None, name=None, buffer=None, little_endian=False):
+        super(TAG_String, self).__init__(value, name, little_endian=little_endian)
         if buffer:
             self._parse_buffer(buffer)
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
-        length = TAG_Short(buffer=buffer)
+        length = TAG_Short(buffer=buffer, little_endian=self.little_endian)
         read = buffer.read(length.value)
         if len(read) != length.value:
             raise StructError()
@@ -357,7 +358,7 @@ class TAG_String(TAG, Sequence):
 
     def _render_buffer(self, buffer):
         save_val = self.value.encode("utf-8")
-        length = TAG_Short(len(save_val))
+        length = TAG_Short(len(save_val), little_endian=self.little_endian)
         length._render_buffer(buffer)
         buffer.write(save_val)
 
@@ -386,8 +387,8 @@ class TAG_List(TAG, MutableSequence):
     """
     id = TAG_LIST
 
-    def __init__(self, type=None, value=None, name=None, buffer=None):
-        super(TAG_List, self).__init__(value, name)
+    def __init__(self, type=None, value=None, name=None, buffer=None, little_endian=False):
+        super(TAG_List, self).__init__(value, name, little_endian=False)
         if type:
             self.tagID = type.id
         else:
@@ -400,15 +401,15 @@ class TAG_List(TAG, MutableSequence):
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
-        self.tagID = TAG_Byte(buffer=buffer).value
+        self.tagID = TAG_Byte(buffer=buffer, little_endian=self.little_endian).value
         self.tags = []
-        length = TAG_Int(buffer=buffer)
+        length = TAG_Int(buffer=buffer, little_endian=self.little_endian)
         for x in range(length.value):
-            self.tags.append(TAGLIST[self.tagID](buffer=buffer))
+            self.tags.append(TAGLIST[self.tagID](buffer=buffer,little_endian=self.little_endian))
 
     def _render_buffer(self, buffer):
-        TAG_Byte(self.tagID)._render_buffer(buffer)
-        length = TAG_Int(len(self.tags))
+        TAG_Byte(self.tagID, little_endian=self.little_endian)._render_buffer(buffer)
+        length = TAG_Int(len(self.tags), little_endian=self.little_endian)
         length._render_buffer(buffer)
         for i, tag in enumerate(self.tags):
             if tag.id != self.tagID:
@@ -470,9 +471,9 @@ class TAG_Compound(TAG, MutableMapping):
     """
     id = TAG_COMPOUND
 
-    def __init__(self, buffer=None, name=None):
+    def __init__(self, buffer=None, name=None, little_endian=False):
         # TODO: add a value parameter as well
-        super(TAG_Compound, self).__init__()
+        super(TAG_Compound, self).__init__(little_endian=little_endian)
         self.tags = []
         self.name = ""
         if buffer:
@@ -481,14 +482,14 @@ class TAG_Compound(TAG, MutableMapping):
     # Parsers and Generators
     def _parse_buffer(self, buffer):
         while True:
-            type = TAG_Byte(buffer=buffer)
+            type = TAG_Byte(buffer=buffer, little_endian=self.little_endian)
             if type.value == TAG_END:
                 # print("found tag_end")
                 break
             else:
-                name = TAG_String(buffer=buffer).value
+                name = TAG_String(buffer=buffer, little_endian=self.little_endian).value
                 try:
-                    tag = TAGLIST[type.value]()
+                    tag = TAGLIST[type.value](little_endian=self.little_endian)
                 except KeyError:
                     raise ValueError("Unrecognised tag type %d" % type.value)
                 tag.name = name
@@ -497,8 +498,8 @@ class TAG_Compound(TAG, MutableMapping):
 
     def _render_buffer(self, buffer):
         for tag in self.tags:
-            TAG_Byte(tag.id)._render_buffer(buffer)
-            TAG_String(tag.name)._render_buffer(buffer)
+            TAG_Byte(tag.id, little_endian=self.little_endian)._render_buffer(buffer)
+            TAG_String(tag.name, little_endian=self.little_endian)._render_buffer(buffer)
             tag._render_buffer(buffer)
         buffer.write(b'\x00')  # write TAG_END
 
@@ -595,7 +596,7 @@ TAGLIST = {TAG_END: _TAG_End, TAG_BYTE: TAG_Byte, TAG_SHORT: TAG_Short,
 class NBTFile(TAG_Compound):
     """Represent an NBT file object."""
 
-    def __init__(self, filename=None, buffer=None, fileobj=None):
+    def __init__(self, filename=None, buffer=None, fileobj=None, little_endian=False):
         """
         Create a new NBTFile object.
         Specify either a filename, file object or data buffer.
@@ -606,9 +607,9 @@ class NBTFile(TAG_Compound):
         If file object is specified, the caller is responsible for closing the
         file.
         """
-        super(NBTFile, self).__init__()
+        super(NBTFile, self).__init__(little_endian=little_endian)
         self.filename = filename
-        self.type = TAG_Byte(self.id)
+        self.type = TAG_Byte(self.id, little_endian=self.little_endian)
         closefile = True
         # make a file object
         if filename:
@@ -652,9 +653,9 @@ class NBTFile(TAG_Compound):
             self.file = GzipFile(fileobj=fileobj)
         if self.file:
             try:
-                type = TAG_Byte(buffer=self.file)
+                type = TAG_Byte(buffer=self.file, little_endian=self.little_endian)
                 if type.value == self.id:
-                    name = TAG_String(buffer=self.file).value
+                    name = TAG_String(buffer=self.file, little_endian=self.little_endian).value
                     self._parse_buffer(self.file)
                     self.name = name
                     self.file.close()
@@ -691,8 +692,8 @@ class NBTFile(TAG_Compound):
                 "filename or a file object"
             )
         # Render tree to file
-        TAG_Byte(self.id)._render_buffer(self.file)
-        TAG_String(self.name)._render_buffer(self.file)
+        TAG_Byte(self.id, little_endian=self.little_endian)._render_buffer(self.file)
+        TAG_String(self.name, little_endian=self.little_endian)._render_buffer(self.file)
         self._render_buffer(self.file)
         # make sure the file is complete
         try:
