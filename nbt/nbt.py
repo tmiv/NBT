@@ -106,20 +106,22 @@ class _TAG_Numeric(TAG):
     def _parse_buffer(self, buffer):
         # Note: buffer.read() may raise an IOError, for example if buffer is a
         # corrupt gzip.GzipFile
-        self.value = self.fmt.unpack(buffer.read(self.fmt.size))[0]
+        self.value = self.fmt().unpack(buffer.read(self.fmt().size))[0]
 
     def _render_buffer(self, buffer):
-        buffer.write(self.fmt.pack(self.value))
+        buffer.write(self.fmt().pack(self.value))
 
 
 class _TAG_End(TAG):
     id = TAG_END
-    fmt = Struct(">b" if not self.little_endian else "<b")
+
+    def fmt(self):
+        return Struct(">b" if not self.little_endian else "<b")
 
     def _parse_buffer(self, buffer):
         # Note: buffer.read() may raise an IOError, for example if buffer is a
         # corrupt gzip.GzipFile
-        value = self.fmt.unpack(buffer.read(1))[0]
+        value = self.fmt().unpack(buffer.read(1))[0]
         if value != 0:
             raise ValueError(
                 "A Tag End must be rendered as '0', not as '%d'." % value)
@@ -132,39 +134,50 @@ class _TAG_End(TAG):
 class TAG_Byte(_TAG_Numeric):
     """Represent a single tag storing 1 byte."""
     id = TAG_BYTE
-    fmt = Struct(">b" if not self.little_endian else "<b" )
+
+    def fmt( self ):
+        return Struct(">b" if not self.little_endian else "<b" )
 
 
 class TAG_Short(_TAG_Numeric):
     """Represent a single tag storing 1 short."""
     id = TAG_SHORT
-    fmt = Struct(">h" if not self.little_endian else "<h" )
+
+    def fmt( self ):
+        return Struct(">h" if not self.little_endian else "<h" )
 
 
 class TAG_Int(_TAG_Numeric):
     """Represent a single tag storing 1 int."""
     id = TAG_INT
-    fmt = Struct(">i" if not self.little_endian else "<i")
+
+    def fmt( self ):
+        return Struct(">i" if not self.little_endian else "<i")
     """Struct(">i"), 32-bits integer, big-endian"""
 
 
 class TAG_Long(_TAG_Numeric):
     """Represent a single tag storing 1 long."""
     id = TAG_LONG
-    fmt = Struct(">q" if not self.little_endian else "<q")
+
+    def fmt( self ):
+        return Struct(">q" if not self.little_endian else "<q")
 
 
 class TAG_Float(_TAG_Numeric):
     """Represent a single tag storing 1 IEEE-754 floating point number."""
     id = TAG_FLOAT
-    fmt = Struct(">f" if not self.little_endian else "<f")
 
+    def fmt( self ):
+        return Struct(">f" if not self.little_endian else "<f")
 
 class TAG_Double(_TAG_Numeric):
     """Represent a single tag storing 1 IEEE-754 double precision floating
     point number."""
     id = TAG_DOUBLE
-    fmt = Struct(">d" if not self.little_endian else "<d" )
+
+    def fmt( self ):
+        return Struct(">d" if not self.little_endian else "<d" )
 
 
 class TAG_Byte_Array(TAG, MutableSequence):
@@ -240,7 +253,7 @@ class TAG_Int_Array(TAG, MutableSequence):
 
     def update_fmt(self, length):
         """ Adjust struct format description to length given """
-        self.fmt = Struct(">" + str(length) + "i")
+        self.fmt = Struct((">" if not self.little_endian else "<") + str(length) + "i")
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
@@ -295,7 +308,7 @@ class TAG_Long_Array(TAG, MutableSequence):
 
     def update_fmt(self, length):
         """ Adjust struct format description to length given """
-        self.fmt = Struct(">" + str(length) + "q")
+        self.fmt = Struct((">" if not self.little_endian else "<") + str(length) + "q")
 
     # Parsers and Generators
     def _parse_buffer(self, buffer):
