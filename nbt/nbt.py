@@ -401,7 +401,7 @@ class TAG_List(TAG, MutableSequence):
     id = TAG_LIST
 
     def __init__(self, type=None, value=None, name=None, buffer=None, little_endian=False):
-        super(TAG_List, self).__init__(value, name, little_endian=False)
+        super(TAG_List, self).__init__(value, name, little_endian=little_endian)
         if type:
             self.tagID = type.id
         else:
